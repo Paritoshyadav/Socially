@@ -28,6 +28,7 @@ func New(s *service.Service) http.Handler {
 			r.Post("/{postID}/toggle_likes", h.toggleLikePostHandler)
 			r.Get("/{postID}", h.getPostHandler)
 			r.Post("/{postID}/comments", h.createCommentHandler)
+			r.Get("/{postID}/comments", h.getCommentsHandler)
 
 		})
 		r.Get("/timeline", h.getTimeline)

@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/paritoshyadav/socialnetwork/internal/service"
@@ -23,12 +24,17 @@ func (h *handler) createPost(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var postInput CreatePostInput
 	err := json.NewDecoder(r.Body).Decode(&postInput)
-
+	defer r.Body.Close()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	defer r.Body.Close()
+	//trimspace postInput content and spoiler_of if given
+	postInput.Content = strings.TrimSpace(postInput.Content)
+	if postInput.SpoilerOf != nil {
+		*postInput.SpoilerOf = strings.TrimSpace(*postInput.SpoilerOf)
+	}
+
 	err = ValidateInput(postInput)
 	if err != nil {
 		http.Error(w, service.ErrValidations.Error(), http.StatusBadRequest)
@@ -55,7 +61,7 @@ func (h *handler) createPost(w http.ResponseWriter, r *http.Request) {
 //toggle like post handler
 func (h *handler) toggleLikePostHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	postID, err := strconv.ParseInt(chi.URLParam(r, "postID"), 10, 64)
+	postID, err := strconv.ParseInt(strings.TrimSpace(chi.URLParam(r, "postID")), 10, 64)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -80,7 +86,7 @@ func (h *handler) toggleLikePostHandler(w http.ResponseWriter, r *http.Request) 
 //get user posts handler
 func (h *handler) getUserPostsHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	username := chi.URLParam(r, "username")
+	username := strings.TrimSpace(chi.URLParam(r, "username"))
 	err := ValidateUsername(username)
 	if err != nil {
 		http.Error(w, service.ErrValidations.Error(), http.StatusBadRequest)

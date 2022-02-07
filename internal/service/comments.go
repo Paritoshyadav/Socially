@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
+	"log"
 	"time"
 )
 
@@ -60,4 +62,75 @@ func (s *Service) CreateComment(ctx context.Context, content string, postId int6
 	}
 
 	return comment, nil
+}
+
+// Get post comments
+func (s *Service) GetPostComments(ctx context.Context, postId int64, last int, before string) ([]Comment, error) {
+	var comments []Comment
+	uid, auth := ctx.Value(KeyAuthUserID).(int64)
+
+	query, args, err := buildQuery(`SELECT comments.id, comments.user_id, comments.post_id, comments.content, comments.likes_count,comments.created_at
+	,users.username As username, users.avatar As avatar_url
+	{{if .Auth}}
+	,comments.user_id = @uid As mine
+	,comment_likes.user_id is not null As liked
+	{{end}}
+	FROM comments
+	Inner join users on users.id = comments.user_id
+	{{if .Auth}}
+	LEFT JOIN comment_likes ON comment_likes.comment_id = comments.id AND comment_likes.user_id = @uid
+	{{end}}
+	WHERE comments.post_id = @postId
+	{{if .before}}
+	AND comments.id < @before
+	{{end}}
+	order by comments.id desc
+	{{if .last}}
+	limit @last
+	{{end}}	
+	`, map[string]interface{}{
+		"last":   last,
+		"before": before,
+		"postId": postId,
+		"uid":    uid,
+		"Auth":   auth,
+	})
+	if err != nil {
+		return comments, fmt.Errorf("can not build comments query, error: %v", err)
+	}
+	var u User
+	var avatar sql.NullString
+	rows, err := s.Db.Query(ctx, query, args...)
+	if isforeignKeyViolation(err) {
+		return comments, ErrPostNotFound
+	}
+
+	defer rows.Close()
+
+	if err != nil {
+		return comments, fmt.Errorf("can not get comments, error: %v", err)
+	}
+
+	for rows.Next() {
+		var comment Comment
+		dest := []interface{}{&comment.ID, &comment.UserId, &comment.PostId, &comment.Content, &comment.LikesCount, &comment.CreatedAt, &u.Username, &avatar}
+		if auth {
+			dest = append(dest, &comment.IsMe, &comment.Liked)
+		}
+		if err = rows.Scan(dest...); err != nil {
+			return comments, fmt.Errorf("can not scan comment, error: %v", err)
+		}
+		if avatar.Valid {
+			url := s.Origin + "/img/avatars" + avatar.String
+			u.AvatarUrl = &url
+		}
+		comment.User = &u
+		comments = append(comments, comment)
+
+	}
+	err = rows.Err()
+	if err != nil {
+		log.Fatal(err)
+	}
+	return comments, err
 }
