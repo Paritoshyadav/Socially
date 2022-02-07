@@ -81,7 +81,11 @@ func (h *handler) toggleLikePostHandler(w http.ResponseWriter, r *http.Request) 
 func (h *handler) getUserPostsHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	username := chi.URLParam(r, "username")
-
+	err := ValidateUsername(username)
+	if err != nil {
+		http.Error(w, service.ErrValidations.Error(), http.StatusBadRequest)
+		return
+	}
 	q := r.URL.Query()
 	last, err := strconv.Atoi(q.Get("last"))
 	if err != nil {
@@ -93,6 +97,10 @@ func (h *handler) getUserPostsHandler(w http.ResponseWriter, r *http.Request) {
 	out, err := h.PostsByUser(ctx, username, last, before)
 	if err == service.ErrUnAuthorized {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+	if err == service.ErrUserNotFound {
+		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
 	if err == service.ErrUserNotFound {

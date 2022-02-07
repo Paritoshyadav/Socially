@@ -13,17 +13,18 @@ import (
 
 //Post model
 type Post struct {
-	ID         int64     `json:"id"`
-	UserId     int64     `json:"-"`
-	Content    string    `json:"content"`
-	LikesCount int       `json:"likes_count"`
-	Liked      bool      `json:"liked"`
-	SpoilerOf  *string   `json:"spoiler_of"`
-	NSFW       bool      `json:"nsfw"`
-	User       *User     `json:"user"`
-	IsMe       bool      `json:"is_me"`
-	CreatedAt  time.Time `json:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at"`
+	ID            int64     `json:"id"`
+	UserId        int64     `json:"-"`
+	Content       string    `json:"content"`
+	LikesCount    int       `json:"likes_count"`
+	CommentsCount int       `json:"comments_count"`
+	Liked         bool      `json:"liked"`
+	SpoilerOf     *string   `json:"spoiler_of"`
+	NSFW          bool      `json:"nsfw"`
+	User          *User     `json:"user"`
+	IsMe          bool      `json:"is_me"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 var (
@@ -200,7 +201,7 @@ func (s *Service) PostsByUser(ctx context.Context, username string, last int, be
 	uid, auth := ctx.Value(KeyAuthUserID).(int64)
 
 	var posts []Post
-	query, args, err := buildQuery(`SELECT id,content, created_at,likes_count,spoiler,nsfw 
+	query, args, err := buildQuery(`SELECT id,content, created_at,likes_count,spoiler,nsfw,comments_count
 	{{if .auth}}
 	,posts.user_id = @uid As mine
 	,likes.user_id is not null As liked
@@ -235,7 +236,7 @@ func (s *Service) PostsByUser(ctx context.Context, username string, last int, be
 
 	for rows.Next() {
 		var p Post
-		dest := []interface{}{&p.ID, &p.Content, &p.CreatedAt, &p.LikesCount, &p.SpoilerOf, &p.NSFW}
+		dest := []interface{}{&p.ID, &p.Content, &p.CreatedAt, &p.LikesCount, &p.SpoilerOf, &p.NSFW, &p.CommentsCount}
 		if auth {
 			dest = append(dest, &p.IsMe, &p.Liked)
 		}
@@ -253,7 +254,7 @@ func (s *Service) Post(ctx context.Context, id int64) (Post, error) {
 	uid, auth := ctx.Value(KeyAuthUserID).(int64)
 
 	var p Post
-	query, args, err := buildQuery(`SELECT posts.id,content, created_at,likes_count,spoiler,nsfw 
+	query, args, err := buildQuery(`SELECT posts.id,content, created_at,likes_count,spoiler,nsfw,comments_count 
 	,users.username As username
 	,users.avatar As avatar_url
 	{{if .auth}}
@@ -279,7 +280,7 @@ func (s *Service) Post(ctx context.Context, id int64) (Post, error) {
 	}
 	var u User
 	var avatar sql.NullString
-	dest := []interface{}{&p.ID, &p.Content, &p.CreatedAt, &p.LikesCount, &p.SpoilerOf, &p.NSFW, &u.Username, &avatar}
+	dest := []interface{}{&p.ID, &p.Content, &p.CreatedAt, &p.LikesCount, &p.SpoilerOf, &p.NSFW, &p.CommentsCount, &u.Username, &avatar}
 	if auth {
 
 		dest = append(dest, &p.IsMe, &p.Liked)

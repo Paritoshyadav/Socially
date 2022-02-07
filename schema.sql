@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS posts (
     updated_at TIMESTAMP NOT NULL DEFAULT now(),
     content VARCHAR NOT NULL,
     likes_count INT NOT NULL DEFAULT 0 CHECK (likes_count >= 0),
+    comments_count INT NOT NULL DEFAULT 0 CHECK (likes_count >= 0),
     spoiler VARCHAR,
     nsfw BOOLEAN NOT NULL DEFAULT FALSE
 );
@@ -36,7 +37,23 @@ CREATE TABLE IF NOT EXISTS likes (
     PRIMARY KEY (user_id,post_id)
 );
 
+CREATE TABLE IF NOT EXISTS comments (
+    id SERIAL PRIMARY KEY NOT NULL,
+    user_id INT NOT NULL REFERENCES users,
+    post_id INT NOT NULL REFERENCES posts,
+    created_at TIMESTAMP NOT NULL DEFAULT now(),
+    content VARCHAR NOT NULL,
+    likes_count INT NOT NULL DEFAULT 0 CHECK (likes_count >= 0)
+);
+
+CREATE TABLE IF NOT EXISTS comment_likes (
+    user_id INT NOT NULL REFERENCES users,
+    comment_id INT NOT NULL REFERENCES comments,
+    PRIMARY KEY (user_id,comment_id)
+);
+
 CREATE INDEX IF NOT EXISTS posts_created_at_index ON posts (created_at DESC);
+CREATE INDEX IF NOT EXISTS comments_created_at_index ON comments (created_at DESC);
 
 CREATE TABLE IF NOT EXISTS timelines (
     id SERIAL PRIMARY KEY NOT NULL,
@@ -52,4 +69,8 @@ INSERT INTO users (id,email,username) VALUES (1,'test@test.com','testuser'),(2,'
 INSERT INTO follows (follower_id,following_id) VALUES (2,1);
 INSERT INTO posts (id,user_id,content) VALUES (21,1,'test post by testUser'),(22,1,'another test post by testUser');
 INSERT INTO timelines (user_id,post_id) VALUES (1,21),(1,22),(2,21),(2,22);
+-- INSERT INTO likes (user_id,post_id) VALUES (1,21),(1,22),(2,21),(2,22);
+INSERT INTO comments (id,user_id,post_id,content) VALUES (31,1,21,'test comment by testUser'),(32,1,22,'another test comment by testUser');
+-- INSERT INTO comment_likes (user_id,comment_id) VALUES (1,31),(1,32),(2,31),(2,32);
+
 
