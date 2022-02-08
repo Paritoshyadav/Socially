@@ -88,3 +88,28 @@ func (h *handler) getCommentsHandler(w http.ResponseWriter, r *http.Request) {
 	response(w, out, http.StatusOK)
 
 }
+
+//toggle comment like handler
+func (h *handler) toggleCommentLikeHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	commentID, err := strconv.ParseInt(chi.URLParam(r, "commentID"), 10, 64)
+	if err != nil {
+		http.Error(w, service.ErrValidations.Error(), http.StatusBadRequest)
+		return
+	}
+	out, err := h.ToggleCommentLike(ctx, commentID)
+	if err == service.ErrUnAuthorized {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+	if err == service.ErrCommentNotFound {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		responseError(w, err)
+		return
+	}
+	response(w, out, http.StatusOK)
+
+}

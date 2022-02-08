@@ -3,10 +3,16 @@ package service
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"time"
 )
+
+type ToggleCommentLikeOutput struct {
+	Liked      bool `json:"liked"`
+	LikesCount int  `json:"likes_count"`
+}
 
 //comment struct
 type Comment struct {
@@ -20,6 +26,10 @@ type Comment struct {
 	IsMe       bool      `json:"is_me"`
 	CreatedAt  time.Time `json:"created_at"`
 }
+
+var (
+	ErrCommentNotFound = errors.New("comment not found")
+)
 
 //CreateComment and update post comment Count
 func (s *Service) CreateComment(ctx context.Context, content string, postId int64) (Comment, error) {
@@ -133,4 +143,65 @@ func (s *Service) GetPostComments(ctx context.Context, postId int64, last int, b
 		log.Fatal(err)
 	}
 	return comments, err
+}
+
+//toggle comments like and update comment likes count
+func (s *Service) ToggleCommentLike(ctx context.Context, commentId int64) (ToggleCommentLikeOutput, error) {
+	var output ToggleCommentLikeOutput
+	uid, ok := ctx.Value(KeyAuthUserID).(int64)
+	if !ok {
+		return output, ErrUnAuthorized
+	}
+	//Begin transasction
+	tx, err := s.Db.Begin(ctx)
+	if err != nil {
+		return output, fmt.Errorf("can not start the creating comment transcation, error: %v", err)
+	}
+	defer tx.Rollback(ctx)
+
+	//query to check if the user has liked the comment
+	query := "Select Exists (SELECT 1 FROM comment_likes WHERE comment_id = $1 AND user_id = $2)"
+
+	if err := tx.QueryRow(ctx, query, commentId, uid).Scan(&output.Liked); err != nil {
+		return output, fmt.Errorf("can not check if the user has liked the comment, error: %v", err)
+	}
+
+	if output.Liked {
+
+		//if user already liked the comment delete the like
+		query = "DELETE FROM comment_likes WHERE comment_id = $1 AND user_id = $2"
+		if _, err = tx.Exec(ctx, query, commentId, uid); err != nil {
+			return output, fmt.Errorf("can not delete the like, error: %v", err)
+		}
+		//update comment likes count
+		query = "UPDATE comments SET likes_count = likes_count - 1 WHERE id = $1 Returning likes_count"
+		if err = tx.QueryRow(ctx, query, commentId).Scan(&output.LikesCount); err != nil {
+			return output, fmt.Errorf("can not update comment likes count in negative, error: %v", err)
+		}
+
+	} else {
+		//if user didnt liked the comment insert the like
+		query = "INSERT INTO comment_likes (comment_id, user_id) VALUES ($1, $2)"
+		_, err = tx.Exec(ctx, query, commentId, uid)
+
+		if isforeignKeyViolation(err) {
+			return output, ErrCommentNotFound
+		}
+
+		if err != nil {
+			return output, fmt.Errorf("can not insert the like, error: %v", err)
+		}
+		//update comment likes count
+		query = "UPDATE comments SET likes_count = likes_count + 1 WHERE id = $1 Returning likes_count"
+		if err = tx.QueryRow(ctx, query, commentId).Scan(&output.LikesCount); err != nil {
+			return output, fmt.Errorf("can not update comment likes count in postive, error: %v", err)
+		}
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return output, fmt.Errorf("can not commit the creating comment transcation, error: %v", err)
+	}
+	output.Liked = !output.Liked
+
+	return output, nil
 }

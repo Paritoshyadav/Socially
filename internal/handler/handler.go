@@ -32,6 +32,7 @@ func New(s *service.Service) http.Handler {
 
 		})
 		r.Get("/timeline", h.getTimeline)
+		r.Post("/comments/{commentID}/toggle_likes", h.toggleCommentLikeHandler)
 
 		r.Route("/users", func(r chi.Router) {
 			r.Post("/", h.createUser)
