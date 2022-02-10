@@ -173,10 +173,11 @@ func (s *Service) ToggleFollow(ctx context.Context, username string) (ToggleFoll
 	}
 	out.Following = !out.Following
 	fmt.Println(out)
-	//TODO: notify the user about following
-	// if out.Following {
 
-	// }
+	if out.Following {
+		go s.NotifyFollow(userId, followingID)
+
+	}
 	return out, nil
 
 }

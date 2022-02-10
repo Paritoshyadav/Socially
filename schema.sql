@@ -63,9 +63,20 @@ CREATE TABLE IF NOT EXISTS timelines (
 
 CREATE UNIQUE INDEX IF NOT EXISTS timelines_user_post_index ON timelines (user_id, post_id);
 
+Create TABLE If NOT EXISTS notifications (
+    id SERIAL PRIMARY KEY NOT NULL,
+    user_id INT NOT NULL REFERENCES users,
+    type VARCHAR NOT NULL,
+    actors VARCHAR[] NOT NULL,
+    read BOOLEAN NOT NULL DEFAULT FALSE,
+    issued_at TIMESTAMP NOT NULL DEFAULT now()
+);
+
+Create INDEX If NOT EXISTS notifications_issued_at_index ON notifications (issued_at DESC);
 
 
-INSERT INTO users (id,email,username) VALUES (1,'test@test.com','testuser'),(2,'anothertest@test.com','anothertestuser');
+
+INSERT INTO users (id,email,username,followers_count,followings_count) VALUES (1,'test@test.com','testuser',1,0),(2,'anothertest@test.com','anothertestuser',0,1);
 INSERT INTO follows (follower_id,following_id) VALUES (2,1);
 INSERT INTO posts (id,user_id,content) VALUES (21,1,'test post by testUser'),(22,1,'another test post by testUser');
 INSERT INTO timelines (user_id,post_id) VALUES (1,21),(1,22),(2,21),(2,22);

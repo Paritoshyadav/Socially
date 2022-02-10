@@ -33,6 +33,11 @@ func New(s *service.Service) http.Handler {
 		})
 		r.Get("/timeline", h.getTimeline)
 		r.Post("/comments/{commentID}/toggle_likes", h.toggleCommentLikeHandler)
+		r.Route("/notifications", func(r chi.Router) {
+			r.Get("/", h.getNotificationsHandler)
+			r.Post("/mark_as_read", h.markAllNotificationsAsReadHandler)
+			r.Post("/{notificationID}/mark_as_read", h.markNotificationAsReadHandler)
+		})
 
 		r.Route("/users", func(r chi.Router) {
 			r.Post("/", h.createUser)
