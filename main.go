@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/paritoshyadav/socialnetwork/internal/handler"
 	"github.com/paritoshyadav/socialnetwork/internal/service"
 	"github.com/paritoshyadav/socialnetwork/internal/service/codec"
@@ -23,7 +23,7 @@ func main() {
 	)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	db, err := pgx.Connect(ctx, databaseURL)
+	db, err := pgxpool.Connect(ctx, databaseURL)
 	if err != nil {
 		log.Fatal("could not connect database ", err)
 		return
@@ -35,7 +35,7 @@ func main() {
 		log.Fatal("could not ping database", err)
 		return
 	}
-	defer db.Close(context.Background())
+	defer db.Close()
 
 	c := codec.New(secrettoken, service.TokenLifetime)
 

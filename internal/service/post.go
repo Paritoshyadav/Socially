@@ -88,32 +88,34 @@ func (s *Service) CreatePost(ctx context.Context, content string, spoilerOf *str
 		return ti, fmt.Errorf("can not commit the creating post transcation, error: %v", err)
 	}
 
-	go func(p Post) {
-
-		u, err := s.UserById(context.Background(), p.UserId)
-		if err != nil {
-			log.Printf("can not get post user by id: %v", err)
-			return
-		}
-
-		p.User = &u
-		p.IsMe = false
-		p.Subscribed = false
-
-		ti, err := s.fanoutPost(p)
-		if err != nil {
-			log.Printf("can not fanout post: %v", err)
-			return
-		}
-
-		for _, t := range ti {
-			log.Println(litter.Sdump(t))
-			//TODO:s.PublishPost(t)
-		}
-
-	}(ti.Post)
+	go s.postCreated(ti.Post)
 	log.Println(litter.Sdump(ti))
 	return ti, nil
+}
+
+func (s *Service) postCreated(p Post) {
+	u, err := s.UserById(context.Background(), p.UserId)
+	if err != nil {
+		log.Printf("can not get post user by id: %v", err)
+		return
+	}
+
+	p.User = &u
+	p.IsMe = false
+	p.Subscribed = false
+
+	ti, err := s.fanoutPost(p)
+	go s.NotifyPostMention(p)
+	if err != nil {
+		log.Printf("can not fanout post: %v", err)
+		return
+	}
+
+	for _, t := range ti {
+		log.Println(litter.Sdump(t))
+		//TODO:s.PublishPost(t)
+	}
+
 }
 
 func (s *Service) fanoutPost(p Post) ([]TimelineItem, error) {

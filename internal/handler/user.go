@@ -7,7 +7,6 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-playground/validator/v10"
 	"github.com/paritoshyadav/socialnetwork/internal/service"
 )
 
@@ -40,10 +39,6 @@ func (h *handler) createUser(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusCreated)
 
-}
-
-func ValidateUsername(username string) error {
-	return validator.New().Var(username, "required,alphanum")
 }
 
 func (h *handler) toggleFollow(w http.ResponseWriter, r *http.Request) {

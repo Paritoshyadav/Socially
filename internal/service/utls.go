@@ -6,6 +6,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgerrcode"
 )
@@ -76,4 +77,25 @@ func normalizePageSize(i int) int {
 		return maxPageSize
 	}
 	return i
+}
+
+func collectMentions(s string) []string {
+	check := map[string]struct{}{}
+	u := []string{}
+	for _, m := range strings.Split(s, " ") {
+		if strings.HasPrefix(m, "@") {
+			m = strings.TrimPrefix(m, "@")
+			if len(m) > 1 && validator.New().Var(m, "required,alphanum") == nil {
+
+				if _, ok := check[m]; !ok {
+					check[m] = struct{}{}
+					u = append(u, m)
+
+				}
+			}
+
+		}
+
+	}
+	return u
 }

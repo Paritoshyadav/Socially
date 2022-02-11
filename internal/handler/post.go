@@ -13,8 +13,8 @@ import (
 )
 
 type CreatePostInput struct {
-	Content   string  `json:"content" validate:"required,min=1,max=5"`
-	SpoilerOf *string `json:"spoiler_of" validate:"omitempty,min=1,max=5"`
+	Content   string  `json:"content" validate:"required,min=1,max=100"`
+	SpoilerOf *string `json:"spoiler_of" validate:"omitempty,min=1,max=50"`
 	NSFW      bool    `json:"nsfw"`
 }
 

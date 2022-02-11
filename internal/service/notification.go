@@ -246,3 +246,76 @@ func (s *Service) TogglePostSubscription(ctx context.Context, postid int64) (Tog
 
 	return output, nil
 }
+
+//notify mention users
+func (s *Service) NotifyPostMention(p Post) {
+	ctx := context.Background()
+	actor := p.User.Username
+	mentions := collectMentions(p.Content)
+	if len(mentions) == 0 {
+		return
+	}
+	query := "Insert Into notifications (user_id, actors, type,post_id) Select id, array[$1], 'post_mention',$2 from users where users.id != $3 and users.username = any($4) Returning id,user_id,actors,issued_at"
+
+	rows, err := s.Db.Query(ctx, query, actor, p.ID, p.UserId, mentions)
+	if err != nil {
+		log.Printf("can not insert into post mention notification: %v", err)
+		return
+	}
+	defer rows.Close()
+	var notifications []Notification
+	for rows.Next() {
+		var n Notification
+		dest := []interface{}{&n.ID, &n.UserId, &n.Actors, &n.Issued_at}
+		if err = rows.Scan(dest...); err != nil {
+			log.Printf("can not scan rows: %v", err)
+			return
+		}
+		n.Type = "post_mention"
+		n.PostId = &p.ID
+		notifications = append(notifications, n)
+	}
+	if err = rows.Err(); err != nil {
+		log.Printf("can not iterate through rows: %v", err)
+		return
+	}
+
+	log.Println(litter.Sdump(notifications))
+
+}
+
+func (s *Service) NotifyCommentMention(c Comment) {
+	ctx := context.Background()
+	actor := c.User.Username
+	mentions := collectMentions(c.Content)
+	if len(mentions) == 0 {
+		return
+	}
+	query := "Insert Into notifications (user_id, actors, type,post_id) Select id, array[$1], 'comment_mention',$2 from users where users.id != $3 and users.username = any($4) on Conflict (user_id, type,read,post_id) do update set actors = array_prepend($1,array_remove(notifications.actors,$1)),issued_at = now()  Returning id,user_id,actors,issued_at"
+
+	rows, err := s.Db.Query(ctx, query, actor, c.PostId, c.UserId, mentions)
+	if err != nil {
+		log.Printf("can not insert comment mention notification: %v", err)
+		return
+	}
+	defer rows.Close()
+	var notifications []Notification
+	for rows.Next() {
+		var n Notification
+		dest := []interface{}{&n.ID, &n.UserId, &n.Actors, &n.Issued_at}
+		if err = rows.Scan(dest...); err != nil {
+			log.Printf("can not scan rows: %v", err)
+			return
+		}
+		n.Type = "comment_mention"
+		n.PostId = &c.PostId
+		notifications = append(notifications, n)
+	}
+	if err = rows.Err(); err != nil {
+		log.Printf("can not iterate through rows: %v", err)
+		return
+	}
+
+	log.Println(litter.Sdump(notifications))
+
+}

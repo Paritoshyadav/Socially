@@ -91,6 +91,7 @@ func (s *Service) CommentCreated(c Comment) {
 	c.User = &u
 	c.IsMe = false
 	go s.NotifyComment(c)
+	go s.NotifyCommentMention(c)
 
 }
 

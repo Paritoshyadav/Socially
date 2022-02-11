@@ -35,3 +35,7 @@ func ValidateInput(s interface{}) error {
 	return val.Struct(s)
 
 }
+
+func ValidateUsername(username string) error {
+	return validator.New().Var(username, "required,alphanum")
+}
