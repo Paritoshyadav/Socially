@@ -83,6 +83,30 @@ func (h *handler) toggleLikePostHandler(w http.ResponseWriter, r *http.Request) 
 	response(w, out, http.StatusOK)
 }
 
+func (h *handler) togglePostSubscriptionHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	postID, err := strconv.ParseInt(strings.TrimSpace(chi.URLParam(r, "postID")), 10, 64)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	out, err := h.TogglePostSubscription(ctx, postID)
+	if err == service.ErrUnAuthorized {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+	if err == service.ErrPostNotFound {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		responseError(w, err)
+		return
+	}
+	response(w, out, http.StatusOK)
+}
+
 //get user posts handler
 func (h *handler) getUserPostsHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

@@ -215,10 +215,12 @@ func (s *Service) PostsByUser(ctx context.Context, username string, last int, be
 	{{if .auth}}
 	,posts.user_id = @uid As mine
 	,likes.user_id is not null As liked
+	,post_subscriptions.user_id is not null As subscribed
 	{{end}}
 	FROM posts 	
 	{{if .auth}}
-	LEFT JOIN likes ON likes.post_id = posts.id AND likes.user_id = @uid	
+	LEFT JOIN likes ON likes.post_id = posts.id AND likes.user_id = @uid
+	LEFT JOIN post_subscriptions ON post_subscriptions.post_id = posts.id AND post_subscriptions.user_id = @uid	
 	{{end}}
 	WHERE posts.user_id = (SELECT id FROM users WHERE username = @username)
 	{{if .before}}
@@ -248,7 +250,7 @@ func (s *Service) PostsByUser(ctx context.Context, username string, last int, be
 		var p Post
 		dest := []interface{}{&p.ID, &p.Content, &p.CreatedAt, &p.LikesCount, &p.SpoilerOf, &p.NSFW, &p.CommentsCount}
 		if auth {
-			dest = append(dest, &p.IsMe, &p.Liked)
+			dest = append(dest, &p.IsMe, &p.Liked, &p.Subscribed)
 		}
 
 		if err = rows.Scan(dest...); err != nil {
@@ -270,13 +272,15 @@ func (s *Service) Post(ctx context.Context, id int64) (Post, error) {
 	{{if .auth}}
 	,posts.user_id = @uid As mine
 	,likes.user_id is not null As liked
+	,post_subscriptions.user_id is not null As subscribed
 	
 	{{end}}
 	FROM posts 
 	Inner join users on users.id = posts.user_id	
 	{{if .auth}}
 	
-	LEFT JOIN likes ON likes.post_id = posts.id AND likes.user_id = @uid	
+	LEFT JOIN likes ON likes.post_id = posts.id AND likes.user_id = @uid
+	LEFT JOIN post_subscriptions ON post_subscriptions.post_id = posts.id AND post_subscriptions.user_id = @uid	
 	{{end}}
 	WHERE posts.id = @id
 	order by posts.id desc	
@@ -293,7 +297,7 @@ func (s *Service) Post(ctx context.Context, id int64) (Post, error) {
 	dest := []interface{}{&p.ID, &p.Content, &p.CreatedAt, &p.LikesCount, &p.SpoilerOf, &p.NSFW, &p.CommentsCount, &u.Username, &avatar}
 	if auth {
 
-		dest = append(dest, &p.IsMe, &p.Liked)
+		dest = append(dest, &p.IsMe, &p.Liked, &p.Subscribed)
 	}
 	err = s.Db.QueryRow(ctx, query, args...).Scan(dest...)
 	if err != nil {

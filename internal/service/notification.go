@@ -20,6 +20,10 @@ type Notification struct {
 	PostId    *int64    `json:"post_id,omitempty"`
 }
 
+type TogglePostSubscriptionOutput struct {
+	Subscribed bool `json:"subscribed"`
+}
+
 //Mark all notification read
 func (s *Service) MarkNotificationsRead(ctx context.Context) error {
 	uid, ok := ctx.Value(KeyAuthUserID).(int64)
@@ -193,4 +197,52 @@ func (s *Service) NotifyComment(c Comment) {
 
 	log.Println(litter.Sdump(notifications))
 
+}
+
+//Toggle post_subscription
+func (s *Service) TogglePostSubscription(ctx context.Context, postid int64) (TogglePostSubscriptionOutput, error) {
+	var output TogglePostSubscriptionOutput
+	uid, ok := ctx.Value(KeyAuthUserID).(int64)
+	if !ok {
+		return output, ErrUnAuthorized
+	}
+
+	//Begin transasction
+	tx, err := s.Db.Begin(ctx)
+	if err != nil {
+		log.Printf("can not start the creating post transcation, error: %v", err)
+		return output, err
+	}
+	defer tx.Rollback(ctx)
+
+	query := "Select Exists (Select 1 from post_subscriptions where user_id = $1 and post_id = $2)"
+
+	if err := tx.QueryRow(ctx, query, uid, postid).Scan(&output.Subscribed); err != nil {
+		return output, err
+	}
+	if output.Subscribed {
+		query = "Delete from post_subscriptions where user_id = $1 and post_id = $2"
+		if _, err := s.Db.Exec(ctx, query, uid, postid); err != nil {
+			return output, fmt.Errorf("can not delete post subscription: %v", err)
+		}
+	} else {
+		query = "Insert into post_subscriptions (user_id, post_id) values ($1, $2)"
+		if _, err := s.Db.Exec(ctx, query, uid, postid); err != nil {
+			if isforeignKeyViolation(err) {
+				return output, ErrPostNotFound
+			} else {
+				return output, fmt.Errorf("can not insert post subscription: %v", err)
+			}
+
+		}
+	}
+
+	//commit the transaction
+	if err := tx.Commit(ctx); err != nil {
+		log.Printf("can not commit the creating post transcation, error: %v", err)
+		return output, err
+	}
+	output.Subscribed = !output.Subscribed
+
+	return output, nil
 }
