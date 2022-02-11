@@ -67,11 +67,31 @@ func (s *Service) CreateComment(ctx context.Context, content string, postId int6
 		return comment, fmt.Errorf("can not update post comment count, error: %v", err)
 	}
 
+	//subscripe the use to post_subscription
+	query = "INSERT INTO post_subscriptions (user_id, post_id) VALUES ($1, $2) ON CONFLICT(user_id,post_id) DO NOTHING"
+	if _, err = tx.Exec(ctx, query, uid, postId); err != nil {
+		return comment, fmt.Errorf("can not subscripe the user to post_subscription after creating comment, error: %v", err)
+	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return comment, fmt.Errorf("can not commit the creating comment transcation, error: %v", err)
 	}
 
+	go s.CommentCreated(comment)
 	return comment, nil
+}
+
+func (s *Service) CommentCreated(c Comment) {
+	//get user detals
+	u, err := s.UserById(context.Background(), c.UserId)
+	if err != nil {
+		log.Printf("can not get user details, error: %v", err)
+		return
+	}
+	c.User = &u
+	c.IsMe = false
+	go s.NotifyComment(c)
+
 }
 
 // Get post comments

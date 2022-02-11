@@ -37,6 +37,12 @@ CREATE TABLE IF NOT EXISTS likes (
     PRIMARY KEY (user_id,post_id)
 );
 
+CREATE TABLE IF NOT EXISTS post_subscriptions (
+    user_id INT NOT NULL REFERENCES users,
+    post_id INT NOT NULL REFERENCES posts,
+    PRIMARY KEY (user_id,post_id)
+);
+
 CREATE TABLE IF NOT EXISTS comments (
     id SERIAL PRIMARY KEY NOT NULL,
     user_id INT NOT NULL REFERENCES users,
@@ -68,17 +74,22 @@ Create TABLE If NOT EXISTS notifications (
     user_id INT NOT NULL REFERENCES users,
     type VARCHAR NOT NULL,
     actors VARCHAR[] NOT NULL,
+    post_id INT REFERENCES posts,
     read BOOLEAN NOT NULL DEFAULT FALSE,
     issued_at TIMESTAMP NOT NULL DEFAULT now()
 );
 
 Create INDEX If NOT EXISTS notifications_issued_at_index ON notifications (issued_at DESC);
+Create UNIQUE INDEX If NOT EXISTS notifications_index ON notifications (user_id, type, read,post_id);
 
 
 
-INSERT INTO users (id,email,username,followers_count,followings_count) VALUES (1,'test@test.com','testuser',1,0),(2,'anothertest@test.com','anothertestuser',0,1);
+
+
+INSERT INTO users (id,email,username,followers_count,followings_count) VALUES (1,'test@test.com','testuser',1,0),(2,'anothertest@test.com','anothertestuser',0,1),(3,'john@test.com','john',0,0),(4,'josh@test.com','josh',0,0);
 INSERT INTO follows (follower_id,following_id) VALUES (2,1);
-INSERT INTO posts (id,user_id,content) VALUES (21,1,'test post by testUser'),(22,1,'another test post by testUser');
+INSERT INTO posts (id,user_id,content,comments_count) VALUES (21,1,'test post by testUser',1),(22,1,'another test post by testUser',1);
+INSERT INTO post_subscriptions (user_id,post_id) VALUES (1,21),(1,22);
 INSERT INTO timelines (user_id,post_id) VALUES (1,21),(1,22),(2,21),(2,22);
 -- INSERT INTO likes (user_id,post_id) VALUES (1,21),(1,22),(2,21),(2,22);
 INSERT INTO comments (id,user_id,post_id,content) VALUES (31,1,21,'test comment by testUser'),(32,1,22,'another test comment by testUser');

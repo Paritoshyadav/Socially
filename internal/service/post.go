@@ -25,6 +25,7 @@ type Post struct {
 	IsMe          bool      `json:"is_me"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
+	Subscribed    bool      `json:"subscribed"`
 }
 
 var (
@@ -63,6 +64,14 @@ func (s *Service) CreatePost(ctx context.Context, content string, spoilerOf *str
 	ti.Post.NSFW = nsfw
 	ti.Post.IsMe = true
 
+	//query to subscribe user
+	query = "INSERT INTO post_subscriptions (user_id, post_id) VALUES ($1, $2)"
+	if _, err = tx.Exec(ctx, query, uid, ti.Post.ID); err != nil {
+		return ti, fmt.Errorf("can not subscribe user, error: %v", err)
+	}
+
+	ti.Post.Subscribed = true
+
 	//query to add post to timeline returning id
 
 	query = "INSERT INTO timelines (user_id, post_id) VALUES ($1, $2) RETURNING id"
@@ -89,6 +98,7 @@ func (s *Service) CreatePost(ctx context.Context, content string, spoilerOf *str
 
 		p.User = &u
 		p.IsMe = false
+		p.Subscribed = false
 
 		ti, err := s.fanoutPost(p)
 		if err != nil {
