@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 )
 
 type TimelineItem struct {
@@ -11,6 +12,11 @@ type TimelineItem struct {
 	UserId int64 `json:"-"`
 	PostId int64 `json:"-"`
 	Post   Post  `json:"post"`
+}
+
+type TimelineItemClient struct {
+	timeline chan TimelineItem
+	userID   int64
 }
 
 // Reterive timeline items for a user.
@@ -71,4 +77,41 @@ func (s *Service) RetrieveTimelineItems(ctx context.Context, last int, before st
 
 	return items, nil
 
+}
+
+//Subscripe to timeline
+func (s *Service) SubscribeToTimeline(ctx context.Context) (chan TimelineItem, error) {
+	uid, ok := ctx.Value(KeyAuthUserID).(int64)
+	if !ok {
+		return nil, ErrUnAuthorized
+	}
+
+	tt := make(chan TimelineItem)
+
+	c := &TimelineItemClient{timeline: tt, userID: uid}
+
+	s.timelineITemClients.Store(c, nil)
+
+	go func() {
+		<-ctx.Done()
+		s.timelineITemClients.Delete(c)
+		close(tt)
+		log.Println("unsubscribed from timeline by user " + fmt.Sprint(uid))
+
+	}()
+
+	return tt, nil
+
+}
+
+//broadcast timeline item to all clients
+
+func (s *Service) broadcastTimelineItem(ti TimelineItem) {
+	s.timelineITemClients.Range(func(key, value interface{}) bool {
+		if key.(*TimelineItemClient).userID == ti.UserId {
+			key.(*TimelineItemClient).timeline <- ti
+		}
+
+		return true
+	})
 }

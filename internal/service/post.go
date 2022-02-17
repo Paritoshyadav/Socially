@@ -104,43 +104,38 @@ func (s *Service) postCreated(p Post) {
 	p.IsMe = false
 	p.Subscribed = false
 
-	ti, err := s.fanoutPost(p)
+	err = s.fanoutPost(p)
 	go s.NotifyPostMention(p)
 	if err != nil {
 		log.Printf("can not fanout post: %v", err)
 		return
 	}
 
-	for _, t := range ti {
-		log.Println(litter.Sdump(t))
-		//TODO:s.PublishPost(t)
-	}
-
 }
 
-func (s *Service) fanoutPost(p Post) ([]TimelineItem, error) {
+func (s *Service) fanoutPost(p Post) error {
 	query := "Insert into timelines (user_id, post_id) select follower_id, $1 from follows where following_id = $2 RETURNING id, user_id"
 	rows, err := s.Db.Query(context.Background(), query, p.ID, p.UserId)
 	if err != nil {
-		return nil, fmt.Errorf("can not fanout post, error: %v", err)
+		return fmt.Errorf("can not fanout post, error: %v", err)
 	}
 	defer rows.Close()
-	var ti []TimelineItem
+
 	for rows.Next() {
 		var t TimelineItem
 		if err = rows.Scan(&t.ID, &t.UserId); err != nil {
-			return nil, fmt.Errorf("can not scan fanout post, error: %v", err)
+			return fmt.Errorf("can not scan fanout post, error: %v", err)
 		}
 		t.PostId = p.ID
 		t.Post = p
-		ti = append(ti, t)
+		go s.broadcastTimelineItem(t)
 	}
 	//rows error
 	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("can not iterate timeline post, error: %v", err)
+		return fmt.Errorf("can not iterate timeline post, error: %v", err)
 	}
 
-	return ti, nil
+	return nil
 }
 
 //toggle posts likes
